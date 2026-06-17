@@ -1,14 +1,28 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View, Text, TextInput, TouchableOpacity,
   ScrollView, Switch, StyleSheet, Clipboard,
+  Alert, Animated,
 } from "react-native";
+import * as Location from "expo-location";
+import * as TaskManager from "expo-task-manager";
 import { C } from "../constants/colors";
 import StatBox from "../components/StatBox";
 import {
   perMile, verdict, verdictColor, estimatedReal,
   shortage, disputeText,
 } from "../utils/calculations";
+
+const haversine = (lat1, lon1, lat2, lon2) => {
+  const R = 3958.8;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
 
 export default function MilesScreen() {
   // ── Form state ──────────────────────────────────────────────────
@@ -26,6 +40,88 @@ export default function MilesScreen() {
 
   // ── UI state ────────────────────────────────────────────────────
   const [logged, setLogged] = useState(false);
+
+  // ── Tracker state ────────────────────────────────────────────────
+  const [isTracking, setIsTracking] = useState(false);
+  const [trackedMiles, setTrackedMiles] = useState(0);
+  const [trackingCoords, setTrackingCoords] = useState([]);
+  const [locationSub, setLocationSub] = useState(null);
+  const [tripComplete, setTripComplete] = useState(false);
+  const [completedMiles, setCompletedMiles] = useState(0);
+  const coordsRef = useRef([]);
+  const milesRef = useRef(0);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (isTracking) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+        ])
+      ).start();
+    } else {
+      pulseAnim.stopAnimation();
+      pulseAnim.setValue(1);
+    }
+  }, [isTracking]);
+
+  useEffect(() => {
+    return () => { if (locationSub) locationSub.remove(); };
+  }, [locationSub]);
+
+  // ── Tracker actions ──────────────────────────────────────────────
+  const startTrip = async () => {
+    const { status: fg } = await Location.requestForegroundPermissionsAsync();
+    if (fg !== "granted") {
+      Alert.alert("Permission Required", "Location permission required to track miles");
+      return;
+    }
+    await Location.requestBackgroundPermissionsAsync();
+
+    coordsRef.current = [];
+    milesRef.current = 0;
+    setTrackingCoords([]);
+    setTrackedMiles(0);
+    setTripComplete(false);
+    setIsTracking(true);
+
+    const sub = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.High,
+        timeInterval: 10000,
+        distanceInterval: 0,
+      },
+      (loc) => {
+        const { latitude, longitude } = loc.coords;
+        const prev = coordsRef.current;
+        if (prev.length > 0) {
+          const last = prev[prev.length - 1];
+          milesRef.current += haversine(last.latitude, last.longitude, latitude, longitude);
+          setTrackedMiles(milesRef.current);
+        }
+        coordsRef.current = [...prev, { latitude, longitude }];
+        setTrackingCoords(coordsRef.current);
+      }
+    );
+    setLocationSub(sub);
+  };
+
+  const endTrip = () => {
+    if (locationSub) {
+      locationSub.remove();
+      setLocationSub(null);
+    }
+    setIsTracking(false);
+    const miles = milesRef.current;
+    setActualMiles(miles.toFixed(1));
+    setCompletedMiles(miles);
+    setTripComplete(true);
+    coordsRef.current = [];
+    milesRef.current = 0;
+    setTrackedMiles(0);
+    setTrackingCoords([]);
+  };
 
   // ── Live calculations ───────────────────────────────────────────
   const payNum = parseFloat(ddPay) || 0;
@@ -54,7 +150,7 @@ export default function MilesScreen() {
       ? (totalPay / totalActual).toFixed(2)
       : null;
 
-  // ── Actions ─────────────────────────────────────────────────────
+  // ── Log trip ────────────────────────────────────────────────────
   const canLog = ddPay !== "" && ddMiles !== "";
 
   const logTrip = () => {
@@ -81,6 +177,7 @@ export default function MilesScreen() {
     setActualMiles("");
     setStacked(false);
     setLogged(true);
+    setTripComplete(false);
     setTimeout(() => setLogged(false), 2000);
   };
 
@@ -130,6 +227,42 @@ export default function MilesScreen() {
           unit=""
           color={avgRate !== null ? verdictColor(parseFloat(avgRate), C) : C.sub}
         />
+      </View>
+
+      {/* ── TRIP TRACKER ── */}
+      <Text style={s.sectionLabel}>TRIP TRACKER</Text>
+      <View style={s.card}>
+
+        {tripComplete && (
+          <View style={s.completeCard}>
+            <Text style={s.completeText}>
+              Trip Complete — You drove {completedMiles.toFixed(1)} mi
+            </Text>
+          </View>
+        )}
+
+        {isTracking ? (
+          <>
+            <View style={s.trackingHeader}>
+              <Animated.View style={[s.trackingDot, { opacity: pulseAnim }]} />
+              <Text style={s.trackingLabel}>TRACKING</Text>
+            </View>
+
+            <Text style={s.odometer}>{trackedMiles.toFixed(1)}</Text>
+            <Text style={s.odometerUnit}>mi tracked</Text>
+
+            <Text style={s.trackingHint}>Tap END TRIP when you reach the customer</Text>
+
+            <TouchableOpacity style={s.endBtn} onPress={endTrip}>
+              <Text style={s.endBtnText}>END TRIP</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <TouchableOpacity style={s.startBtn} onPress={startTrip}>
+            <Text style={s.startBtnText}>START TRIP</Text>
+          </TouchableOpacity>
+        )}
+
       </View>
 
       {/* ── LOG AN OFFER ── */}
@@ -513,6 +646,84 @@ const s = StyleSheet.create({
     fontWeight: "900",
     color: "#000",
     letterSpacing: 0.3,
+  },
+
+  // Tracker
+  startBtn: {
+    backgroundColor: C.accent,
+    borderRadius: 10,
+    height: 56,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  startBtnText: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#000",
+    letterSpacing: 0.5,
+  },
+  endBtn: {
+    backgroundColor: C.danger,
+    borderRadius: 10,
+    height: 56,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  endBtnText: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#fff",
+    letterSpacing: 0.5,
+  },
+  trackingHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  trackingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: C.safe,
+  },
+  trackingLabel: {
+    fontSize: 11,
+    color: C.safe,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  odometer: {
+    fontSize: 52,
+    fontWeight: "900",
+    color: C.accent,
+    textAlign: "center",
+    letterSpacing: -2,
+  },
+  odometerUnit: {
+    fontSize: 13,
+    color: C.sub,
+    textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginTop: -4,
+  },
+  trackingHint: {
+    fontSize: 11,
+    color: C.muted,
+    textAlign: "center",
+  },
+  completeCard: {
+    backgroundColor: C.safe + "18",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: C.safe + "44",
+    padding: 12,
+    alignItems: "center",
+  },
+  completeText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: C.safe,
   },
 
   // Empty state
