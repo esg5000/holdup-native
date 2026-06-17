@@ -1,20 +1,50 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Text } from "react-native";
+
+import { C } from "./app/constants/colors";
+import SpotsScreen from "./app/screens/SpotsScreen";
+import MilesScreen from "./app/screens/MilesScreen";
+
+const Tab = createBottomTabNavigator();
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <NavigationContainer>
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: {
+            backgroundColor: C.surface,
+            borderTopColor: C.border,
+            borderTopWidth: 1,
+          },
+          tabBarActiveTintColor: C.accent,
+          tabBarInactiveTintColor: C.muted,
+          tabBarLabelStyle: {
+            fontSize: 10,
+            fontWeight: "700",
+            letterSpacing: 0.5,
+            textTransform: "uppercase",
+          },
+        }}
+      >
+        <Tab.Screen
+          name="Spots"
+          component={SpotsScreen}
+          options={{
+            tabBarIcon: () => <Text style={{ fontSize: 20 }}>🍔</Text>,
+          }}
+        />
+        <Tab.Screen
+          name="My Miles"
+          component={MilesScreen}
+          options={{
+            tabBarIcon: () => <Text style={{ fontSize: 20 }}>🚗</Text>,
+          }}
+        />
+      </Tab.Navigator>
+    </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
