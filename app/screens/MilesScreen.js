@@ -38,9 +38,6 @@ export default function MilesScreen() {
   const [recovered, setRecovered] = useState(0);
   const [recoveredInput, setRecoveredInput] = useState("");
 
-  // ── UI state ────────────────────────────────────────────────────
-  const [logged, setLogged] = useState(false);
-
   // ── Tracker state ────────────────────────────────────────────────
   const [isTracking, setIsTracking] = useState(false);
   const [trackedMiles, setTrackedMiles] = useState(0);
@@ -195,36 +192,6 @@ export default function MilesScreen() {
     trips.length > 0 && totalActual > 0
       ? (totalPay / totalActual).toFixed(2)
       : null;
-
-  // ── Manual log (LOG AN OFFER path) ──────────────────────────────
-  const canLog = ddPay !== "" && ddMiles !== "";
-
-  const logTrip = () => {
-    if (!canLog) return;
-    const actual = actualNum > 0 ? actualNum : null;
-    const short = actual !== null ? parseFloat(shortage(actual, milesNum)) : 0;
-    setTrips(prev => [
-      {
-        id: Date.now(),
-        timestamp: Date.now(),
-        restaurant,
-        ddPay: payNum,
-        ddMiles: milesNum,
-        actualMiles: actual,
-        stacked,
-        shortage: short,
-        rate: parseFloat(perMile(payNum, milesNum)),
-      },
-      ...prev,
-    ]);
-    setRestaurant("");
-    setDdPay("");
-    setDdMiles("");
-    setActualMiles("");
-    setStacked(false);
-    setLogged(true);
-    setTimeout(() => setLogged(false), 2000);
-  };
 
   const confirmRecovered = () => {
     const val = parseFloat(recoveredInput) || 0;
@@ -511,16 +478,6 @@ export default function MilesScreen() {
               <Text style={s.weakWarning}>⚠️ WEAK OFFER — consider declining</Text>
             )}
 
-            <TouchableOpacity
-              style={[s.logBtn, !canLog && s.logBtnDisabled]}
-              onPress={logTrip}
-              disabled={!canLog}
-            >
-              <Text style={[s.logBtnText, !canLog && { color: C.muted }]}>
-                {logged ? "✓ Logged" : "Log This Trip"}
-              </Text>
-            </TouchableOpacity>
-
           </View>
         </>
       )}
@@ -774,23 +731,6 @@ const s = StyleSheet.create({
     fontWeight: "800",
     color: C.danger,
     textAlign: "center",
-  },
-
-  // Log button
-  logBtn: {
-    backgroundColor: C.accent,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  logBtnDisabled: {
-    backgroundColor: C.border,
-  },
-  logBtnText: {
-    fontSize: 15,
-    fontWeight: "900",
-    color: "#000",
-    letterSpacing: 0.3,
   },
 
   // Tracker — idle
