@@ -746,6 +746,7 @@ const s = StyleSheet.create({
   // Filter pills
   pillsRow: {
     marginBottom: 10,
+    flexGrow: 0,
   },
   pillsContent: {
     paddingHorizontal: 16,
