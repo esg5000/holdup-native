@@ -46,8 +46,9 @@ export default function MilesScreen() {
   const [trackedMiles, setTrackedMiles] = useState(0);
   const [trackingCoords, setTrackingCoords] = useState([]);
   const [locationSub, setLocationSub] = useState(null);
-  const [tripComplete, setTripComplete] = useState(false);
-  const [completedMiles, setCompletedMiles] = useState(0);
+  const [lockedOffer, setLockedOffer] = useState(null);
+  const [lastResult, setLastResult] = useState(null);
+  const [resultDisputeOpen, setResultDisputeOpen] = useState(false);
   const coordsRef = useRef([]);
   const milesRef = useRef(0);
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -72,6 +73,14 @@ export default function MilesScreen() {
 
   // ── Tracker actions ──────────────────────────────────────────────
   const startTrip = async () => {
+    if (ddPay === "" || ddMiles === "") {
+      Alert.alert(
+        "Missing Info",
+        "Enter DD Pay and DD Miles first so we can evaluate your trip."
+      );
+      return;
+    }
+
     const { status: fg } = await Location.requestForegroundPermissionsAsync();
     if (fg !== "granted") {
       Alert.alert("Permission Required", "Location permission required to track miles");
@@ -79,19 +88,24 @@ export default function MilesScreen() {
     }
     await Location.requestBackgroundPermissionsAsync();
 
+    const offer = {
+      restaurant,
+      ddPay: parseFloat(ddPay),
+      ddMiles: parseFloat(ddMiles),
+      stacked,
+    };
+    setLockedOffer(offer);
+
     coordsRef.current = [];
     milesRef.current = 0;
     setTrackingCoords([]);
     setTrackedMiles(0);
-    setTripComplete(false);
+    setLastResult(null);
+    setResultDisputeOpen(false);
     setIsTracking(true);
 
     const sub = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.High,
-        timeInterval: 10000,
-        distanceInterval: 0,
-      },
+      { accuracy: Location.Accuracy.High, timeInterval: 10000, distanceInterval: 0 },
       (loc) => {
         const { latitude, longitude } = loc.coords;
         const prev = coordsRef.current;
@@ -113,17 +127,49 @@ export default function MilesScreen() {
       setLocationSub(null);
     }
     setIsTracking(false);
-    const miles = milesRef.current;
-    setActualMiles(miles.toFixed(1));
-    setCompletedMiles(miles);
-    setTripComplete(true);
+
+    const gpsMiles = milesRef.current;
+    const offer = lockedOffer;
+    const actualMi = parseFloat(gpsMiles.toFixed(1));
+    const rateBase = actualMi > 0 ? actualMi : offer.ddMiles;
+    const short = actualMi > offer.ddMiles
+      ? parseFloat(shortage(actualMi, offer.ddMiles))
+      : 0;
+    const rate = parseFloat(perMile(offer.ddPay, rateBase));
+
+    const newTrip = {
+      id: Date.now(),
+      timestamp: Date.now(),
+      restaurant: offer.restaurant,
+      ddPay: offer.ddPay,
+      ddMiles: offer.ddMiles,
+      actualMiles: actualMi,
+      stacked: offer.stacked,
+      shortage: short,
+      rate,
+    };
+
+    setTrips(prev => [newTrip, ...prev]);
+    setLastResult(newTrip);
+
     coordsRef.current = [];
     milesRef.current = 0;
     setTrackedMiles(0);
     setTrackingCoords([]);
   };
 
-  // ── Live calculations ───────────────────────────────────────────
+  const resetForNextTrip = () => {
+    setLastResult(null);
+    setLockedOffer(null);
+    setResultDisputeOpen(false);
+    setRestaurant("");
+    setDdPay("");
+    setDdMiles("");
+    setActualMiles("");
+    setStacked(false);
+  };
+
+  // ── Live calculations (LOG AN OFFER form) ───────────────────────
   const payNum = parseFloat(ddPay) || 0;
   const milesNum = parseFloat(ddMiles) || 0;
   const actualNum = parseFloat(actualMiles) || 0;
@@ -150,7 +196,7 @@ export default function MilesScreen() {
       ? (totalPay / totalActual).toFixed(2)
       : null;
 
-  // ── Log trip ────────────────────────────────────────────────────
+  // ── Manual log (LOG AN OFFER path) ──────────────────────────────
   const canLog = ddPay !== "" && ddMiles !== "";
 
   const logTrip = () => {
@@ -177,7 +223,6 @@ export default function MilesScreen() {
     setActualMiles("");
     setStacked(false);
     setLogged(true);
-    setTripComplete(false);
     setTimeout(() => setLogged(false), 2000);
   };
 
@@ -192,6 +237,13 @@ export default function MilesScreen() {
     const d = new Date(ts);
     return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
+
+  // ── Locked offer display helpers ─────────────────────────────────
+  const lockedRate = lockedOffer
+    ? parseFloat(perMile(lockedOffer.ddPay, lockedOffer.ddMiles))
+    : 0;
+  const lockedVerdictStr = lockedOffer ? verdict(lockedRate) : null;
+  const lockedVColor = lockedOffer ? verdictColor(lockedRate, C) : C.sub;
 
   // ── Render ───────────────────────────────────────────────────────
   return (
@@ -230,23 +282,122 @@ export default function MilesScreen() {
       </View>
 
       {/* ── TRIP TRACKER ── */}
-      <Text style={s.sectionLabel}>TRIP TRACKER</Text>
+      <Text style={s.sectionLabel}>
+        {lastResult ? "TRIP RESULT" : "TRIP TRACKER"}
+      </Text>
       <View style={s.card}>
 
-        {tripComplete && (
-          <View style={s.completeCard}>
-            <Text style={s.completeText}>
-              Trip Complete — You drove {completedMiles.toFixed(1)} mi
+        {/* ── Results state ── */}
+        {lastResult && (
+          <>
+            <Text style={s.resultsName}>
+              {lastResult.restaurant || "Unknown restaurant"}
             </Text>
-          </View>
+
+            <View style={s.metricsRow}>
+              <View style={s.metric}>
+                <Text style={s.metricLabel}>DD PAY</Text>
+                <Text style={[s.metricValue, { color: C.accent }]}>
+                  ${lastResult.ddPay.toFixed(2)}
+                </Text>
+              </View>
+              <View style={s.metricDivider} />
+              <View style={s.metric}>
+                <Text style={s.metricLabel}>DD MILES</Text>
+                <Text style={s.metricValue}>{lastResult.ddMiles}</Text>
+              </View>
+              <View style={s.metricDivider} />
+              <View style={s.metric}>
+                <Text style={s.metricLabel}>ACTUAL</Text>
+                <Text style={s.metricValue}>{lastResult.actualMiles}</Text>
+              </View>
+              <View style={s.metricDivider} />
+              <View style={s.metric}>
+                <Text style={s.metricLabel}>$/MI</Text>
+                <Text style={[s.metricValue, { color: verdictColor(lastResult.rate, C) }]}>
+                  ${lastResult.rate.toFixed(2)}
+                </Text>
+              </View>
+            </View>
+
+            {lastResult.shortage > 0 && (
+              <Text style={s.shortage}>
+                Shorted {lastResult.shortage.toFixed(1)} mi
+              </Text>
+            )}
+
+            {lastResult.shortage > 0.5 && (
+              <TouchableOpacity
+                style={[s.disputeBtn, resultDisputeOpen && s.disputeBtnActive]}
+                onPress={() => setResultDisputeOpen(v => !v)}
+              >
+                <Text style={[s.disputeBtnText, resultDisputeOpen && { color: C.danger }]}>
+                  {resultDisputeOpen ? "Close" : "DISPUTE?"}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {resultDisputeOpen && (
+              <View style={s.disputePanel}>
+                <Text style={s.disputePanelLabel}>READ TO SUPPORT</Text>
+                <Text style={s.disputeScript}>
+                  {disputeText(
+                    lastResult.restaurant || "this restaurant",
+                    lastResult.ddMiles,
+                    lastResult.actualMiles
+                  )}
+                </Text>
+                <TouchableOpacity
+                  style={s.copyBtn}
+                  onPress={() =>
+                    Clipboard.setString(
+                      disputeText(
+                        lastResult.restaurant || "this restaurant",
+                        lastResult.ddMiles,
+                        lastResult.actualMiles
+                      )
+                    )
+                  }
+                >
+                  <Text style={s.copyBtnText}>Copy Text</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <TouchableOpacity style={s.newTripBtn} onPress={resetForNextTrip}>
+              <Text style={s.newTripBtnText}>Start New Trip</Text>
+            </TouchableOpacity>
+          </>
         )}
 
-        {isTracking ? (
+        {/* ── Tracking state ── */}
+        {isTracking && (
           <>
             <View style={s.trackingHeader}>
               <Animated.View style={[s.trackingDot, { opacity: pulseAnim }]} />
               <Text style={s.trackingLabel}>TRACKING</Text>
             </View>
+
+            {/* Locked offer summary */}
+            {lockedOffer && (
+              <View style={s.lockedCard}>
+                <Text style={s.lockedName} numberOfLines={1}>
+                  {lockedOffer.restaurant || "Unknown restaurant"}
+                </Text>
+                <View style={s.lockedRow}>
+                  <Text style={s.lockedPay}>${lockedOffer.ddPay.toFixed(2)}</Text>
+                  <Text style={s.lockedMiles}>{lockedOffer.ddMiles} mi stated</Text>
+                  <View style={[
+                    s.verdictBadge,
+                    { backgroundColor: lockedVColor + "22", borderColor: lockedVColor + "55" },
+                  ]}>
+                    <Text style={[s.verdictBadgeText, { color: lockedVColor }]}>
+                      {lockedVerdictStr}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
 
             <Text style={s.odometer}>{trackedMiles.toFixed(1)}</Text>
             <Text style={s.odometerUnit}>mi tracked</Text>
@@ -257,7 +408,10 @@ export default function MilesScreen() {
               <Text style={s.endBtnText}>END TRIP</Text>
             </TouchableOpacity>
           </>
-        ) : (
+        )}
+
+        {/* ── Idle state ── */}
+        {!isTracking && !lastResult && (
           <TouchableOpacity style={s.startBtn} onPress={startTrip}>
             <Text style={s.startBtnText}>START TRIP</Text>
           </TouchableOpacity>
@@ -265,114 +419,111 @@ export default function MilesScreen() {
 
       </View>
 
-      {/* ── LOG AN OFFER ── */}
-      <Text style={s.sectionLabel}>LOG AN OFFER</Text>
-      <View style={s.card}>
+      {/* ── LOG AN OFFER — only shown when idle ── */}
+      {!isTracking && !lastResult && (
+        <>
+          <Text style={s.sectionLabel}>LOG AN OFFER</Text>
+          <View style={s.card}>
 
-        {/* Restaurant */}
-        <TextInput
-          style={s.input}
-          placeholder="e.g. P.F. Chang's"
-          placeholderTextColor={C.muted}
-          value={restaurant}
-          onChangeText={setRestaurant}
-        />
-
-        {/* Pay / Miles / Stacked */}
-        <View style={s.tripleRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.inputLabel}>DD PAY</Text>
             <TextInput
               style={s.input}
-              placeholder="2.10"
+              placeholder="e.g. P.F. Chang's"
               placeholderTextColor={C.muted}
-              keyboardType="decimal-pad"
-              value={ddPay}
-              onChangeText={setDdPay}
+              value={restaurant}
+              onChangeText={setRestaurant}
             />
-          </View>
-          <View style={{ width: 8 }} />
-          <View style={{ flex: 1 }}>
-            <Text style={s.inputLabel}>DD MILES</Text>
-            <TextInput
-              style={s.input}
-              placeholder="7.2"
-              placeholderTextColor={C.muted}
-              keyboardType="decimal-pad"
-              value={ddMiles}
-              onChangeText={setDdMiles}
-            />
-          </View>
-          <View style={{ width: 8 }} />
-          <View style={{ flex: 1, alignItems: "center" }}>
-            <Text style={s.inputLabel}>STACKED</Text>
-            <Switch
-              value={stacked}
-              onValueChange={setStacked}
-              trackColor={{ false: C.border, true: C.accent + "88" }}
-              thumbColor={stacked ? C.accent : C.sub}
-            />
-          </View>
-        </View>
 
-        {/* Actual Miles */}
-        <View>
-          <Text style={s.inputLabel}>ACTUAL MILES</Text>
-          <Text style={s.inputSub}>from Google Maps or estimate</Text>
-          <TextInput
-            style={s.input}
-            placeholder="driven miles"
-            placeholderTextColor={C.muted}
-            keyboardType="decimal-pad"
-            value={actualMiles}
-            onChangeText={setActualMiles}
-          />
-        </View>
-
-        {/* Live shortage preview */}
-        {liveShortage !== null && (
-          <Text style={s.liveShortage}>Shorted {liveShortage} mi</Text>
-        )}
-
-        {/* Live calc row */}
-        {rateRaw !== null && (
-          <View style={s.liveRow}>
-            <View style={[s.liveBox, { borderColor: vColor + "44" }]}>
-              <Text style={[s.liveValue, { color: vColor }]}>${rateStr}</Text>
-              <Text style={s.liveBoxSub}>per mile</Text>
+            <View style={s.tripleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.inputLabel}>DD PAY</Text>
+                <TextInput
+                  style={s.input}
+                  placeholder="2.10"
+                  placeholderTextColor={C.muted}
+                  keyboardType="decimal-pad"
+                  value={ddPay}
+                  onChangeText={setDdPay}
+                />
+              </View>
+              <View style={{ width: 8 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={s.inputLabel}>DD MILES</Text>
+                <TextInput
+                  style={s.input}
+                  placeholder="7.2"
+                  placeholderTextColor={C.muted}
+                  keyboardType="decimal-pad"
+                  value={ddMiles}
+                  onChangeText={setDdMiles}
+                />
+              </View>
+              <View style={{ width: 8 }} />
+              <View style={{ flex: 1, alignItems: "center" }}>
+                <Text style={s.inputLabel}>STACKED</Text>
+                <Switch
+                  value={stacked}
+                  onValueChange={setStacked}
+                  trackColor={{ false: C.border, true: C.accent + "88" }}
+                  thumbColor={stacked ? C.accent : C.sub}
+                />
+              </View>
             </View>
-            <View style={{ width: 8 }} />
-            <View style={[s.liveBox, { borderColor: vColor + "44" }]}>
-              <Text style={[s.liveValue, { color: vColor }]}>{verdictStr}</Text>
-              <Text style={s.liveBoxSub}>verdict</Text>
+
+            <View>
+              <Text style={s.inputLabel}>ACTUAL MILES</Text>
+              <Text style={s.inputSub}>from Google Maps or estimate</Text>
+              <TextInput
+                style={s.input}
+                placeholder="driven miles"
+                placeholderTextColor={C.muted}
+                keyboardType="decimal-pad"
+                value={actualMiles}
+                onChangeText={setActualMiles}
+              />
             </View>
-            <View style={{ width: 8 }} />
-            <View style={s.liveBox}>
-              <Text style={[s.liveValue, { color: C.text }]}>
-                {actualNum > 0 ? actualNum.toFixed(1) : estReal}
+
+            {liveShortage !== null && (
+              <Text style={s.liveShortage}>Shorted {liveShortage} mi</Text>
+            )}
+
+            {rateRaw !== null && (
+              <View style={s.liveRow}>
+                <View style={[s.liveBox, { borderColor: vColor + "44" }]}>
+                  <Text style={[s.liveValue, { color: vColor }]}>${rateStr}</Text>
+                  <Text style={s.liveBoxSub}>per mile</Text>
+                </View>
+                <View style={{ width: 8 }} />
+                <View style={[s.liveBox, { borderColor: vColor + "44" }]}>
+                  <Text style={[s.liveValue, { color: vColor }]}>{verdictStr}</Text>
+                  <Text style={s.liveBoxSub}>verdict</Text>
+                </View>
+                <View style={{ width: 8 }} />
+                <View style={s.liveBox}>
+                  <Text style={[s.liveValue, { color: C.text }]}>
+                    {actualNum > 0 ? actualNum.toFixed(1) : estReal}
+                  </Text>
+                  <Text style={s.liveBoxSub}>{actualNum > 0 ? "actual mi" : "est. mi"}</Text>
+                </View>
+              </View>
+            )}
+
+            {rateRaw !== null && parseFloat(rateStr) < 0.50 && (
+              <Text style={s.weakWarning}>⚠️ WEAK OFFER — consider declining</Text>
+            )}
+
+            <TouchableOpacity
+              style={[s.logBtn, !canLog && s.logBtnDisabled]}
+              onPress={logTrip}
+              disabled={!canLog}
+            >
+              <Text style={[s.logBtnText, !canLog && { color: C.muted }]}>
+                {logged ? "✓ Logged" : "Log This Trip"}
               </Text>
-              <Text style={s.liveBoxSub}>{actualNum > 0 ? "actual mi" : "est. mi"}</Text>
-            </View>
+            </TouchableOpacity>
+
           </View>
-        )}
-
-        {/* Weak offer warning */}
-        {rateRaw !== null && parseFloat(rateStr) < 0.50 && (
-          <Text style={s.weakWarning}>⚠️ WEAK OFFER — consider declining</Text>
-        )}
-
-        {/* Log button */}
-        <TouchableOpacity
-          style={[s.logBtn, !canLog && s.logBtnDisabled]}
-          onPress={logTrip}
-          disabled={!canLog}
-        >
-          <Text style={[s.logBtnText, !canLog && { color: C.muted }]}>
-            {logged ? "✓ Logged" : "Log This Trip"}
-          </Text>
-        </TouchableOpacity>
-
-      </View>
+        </>
+      )}
 
       {/* ── MY TRIPS ── */}
       <Text style={s.sectionLabel}>MY TRIPS</Text>
@@ -390,7 +541,6 @@ export default function MilesScreen() {
           return (
             <View key={trip.id} style={s.tripCard}>
 
-              {/* Name + time */}
               <View style={s.tripTop}>
                 <Text style={s.tripName} numberOfLines={1}>
                   {trip.restaurant || "Unnamed trip"}
@@ -398,7 +548,6 @@ export default function MilesScreen() {
                 <Text style={s.tripTime}>{formatTime(trip.timestamp)}</Text>
               </View>
 
-              {/* Metrics row */}
               <View style={s.metricsRow}>
                 <View style={s.metric}>
                   <Text style={s.metricLabel}>DD PAY</Text>
@@ -429,15 +578,12 @@ export default function MilesScreen() {
                 </View>
               </View>
 
-              {/* Shortage */}
               {trip.shortage > 0 && (
                 <Text style={s.shortage}>Shorted {trip.shortage.toFixed(1)} mi</Text>
               )}
 
-              {/* Stacked badge */}
               {trip.stacked && <Text style={s.stackedBadge}>STACKED</Text>}
 
-              {/* Dispute toggle */}
               <TouchableOpacity
                 style={[s.disputeBtn, isDisputing && s.disputeBtnActive]}
                 onPress={() => {
@@ -450,7 +596,6 @@ export default function MilesScreen() {
                 </Text>
               </TouchableOpacity>
 
-              {/* Dispute panel */}
               {isDisputing && (
                 <View style={s.disputePanel}>
                   <Text style={s.disputePanelLabel}>READ TO SUPPORT</Text>
@@ -551,7 +696,7 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
 
-  // Form card
+  // Card (shared)
   card: {
     backgroundColor: C.surface,
     borderRadius: 12,
@@ -648,7 +793,7 @@ const s = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // Tracker
+  // Tracker — idle
   startBtn: {
     backgroundColor: C.accent,
     borderRadius: 10,
@@ -662,6 +807,8 @@ const s = StyleSheet.create({
     color: "#000",
     letterSpacing: 0.5,
   },
+
+  // Tracker — active
   endBtn: {
     backgroundColor: C.danger,
     borderRadius: 10,
@@ -692,6 +839,45 @@ const s = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 1,
   },
+  lockedCard: {
+    backgroundColor: C.bg,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: 10,
+    gap: 5,
+  },
+  lockedName: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: C.text,
+  },
+  lockedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  lockedPay: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: C.accent,
+  },
+  lockedMiles: {
+    fontSize: 12,
+    color: C.sub,
+    flex: 1,
+  },
+  verdictBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  verdictBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
   odometer: {
     fontSize: 52,
     fontWeight: "900",
@@ -712,18 +898,27 @@ const s = StyleSheet.create({
     color: C.muted,
     textAlign: "center",
   },
-  completeCard: {
-    backgroundColor: C.safe + "18",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: C.safe + "44",
-    padding: 12,
-    alignItems: "center",
-  },
-  completeText: {
-    fontSize: 14,
+
+  // Tracker — results
+  resultsName: {
+    fontSize: 16,
     fontWeight: "800",
-    color: C.safe,
+    color: C.text,
+  },
+  newTripBtn: {
+    backgroundColor: C.surface,
+    borderRadius: 10,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  newTripBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: C.sub,
+    letterSpacing: 0.3,
   },
 
   // Empty state
