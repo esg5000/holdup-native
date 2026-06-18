@@ -758,6 +758,7 @@ const s = StyleSheet.create({
     paddingVertical: 6,
     borderWidth: 1,
     borderColor: C.border,
+    alignSelf: "flex-start",
   },
   pillActive: {
     backgroundColor: C.accent + "18",
