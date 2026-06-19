@@ -248,6 +248,102 @@ export default function MilesScreen() {
         />
       </View>
 
+      {/* ── LOG AN OFFER — only shown when idle ── */}
+      {!isTracking && !lastResult && (
+        <>
+          <Text style={s.sectionLabel}>LOG AN OFFER</Text>
+          <View style={s.card}>
+
+            <TextInput
+              style={s.input}
+              placeholder="e.g. P.F. Chang's"
+              placeholderTextColor={C.muted}
+              value={restaurant}
+              onChangeText={setRestaurant}
+            />
+
+            <View style={s.tripleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.inputLabel}>DD PAY</Text>
+                <TextInput
+                  style={s.input}
+                  placeholder="2.10"
+                  placeholderTextColor={C.muted}
+                  keyboardType="decimal-pad"
+                  value={ddPay}
+                  onChangeText={setDdPay}
+                />
+              </View>
+              <View style={{ width: 8 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={s.inputLabel}>DD MILES</Text>
+                <TextInput
+                  style={s.input}
+                  placeholder="7.2"
+                  placeholderTextColor={C.muted}
+                  keyboardType="decimal-pad"
+                  value={ddMiles}
+                  onChangeText={setDdMiles}
+                />
+              </View>
+              <View style={{ width: 8 }} />
+              <View style={{ flex: 1, alignItems: "center" }}>
+                <Text style={s.inputLabel}>STACKED</Text>
+                <Switch
+                  value={stacked}
+                  onValueChange={setStacked}
+                  trackColor={{ false: C.border, true: C.accent + "88" }}
+                  thumbColor={stacked ? C.accent : C.sub}
+                />
+              </View>
+            </View>
+
+            <View>
+              <Text style={s.inputLabel}>ACTUAL MILES</Text>
+              <Text style={s.inputSub}>from Google Maps or estimate</Text>
+              <TextInput
+                style={s.input}
+                placeholder="driven miles"
+                placeholderTextColor={C.muted}
+                keyboardType="decimal-pad"
+                value={actualMiles}
+                onChangeText={setActualMiles}
+              />
+            </View>
+
+            {liveShortage !== null && (
+              <Text style={s.liveShortage}>Shorted {liveShortage} mi</Text>
+            )}
+
+            {rateRaw !== null && (
+              <View style={s.liveRow}>
+                <View style={[s.liveBox, { borderColor: vColor + "44" }]}>
+                  <Text style={[s.liveValue, { color: vColor }]}>${rateStr}</Text>
+                  <Text style={s.liveBoxSub}>per mile</Text>
+                </View>
+                <View style={{ width: 8 }} />
+                <View style={[s.liveBox, { borderColor: vColor + "44" }]}>
+                  <Text style={[s.liveValue, { color: vColor }]}>{verdictStr}</Text>
+                  <Text style={s.liveBoxSub}>verdict</Text>
+                </View>
+                <View style={{ width: 8 }} />
+                <View style={s.liveBox}>
+                  <Text style={[s.liveValue, { color: C.text }]}>
+                    {actualNum > 0 ? actualNum.toFixed(1) : estReal}
+                  </Text>
+                  <Text style={s.liveBoxSub}>{actualNum > 0 ? "actual mi" : "est. mi"}</Text>
+                </View>
+              </View>
+            )}
+
+            {rateRaw !== null && parseFloat(rateStr) < 0.50 && (
+              <Text style={s.weakWarning}>⚠️ WEAK OFFER — consider declining</Text>
+            )}
+
+          </View>
+        </>
+      )}
+
       {/* ── TRIP TRACKER ── */}
       <Text style={s.sectionLabel}>
         {lastResult ? "TRIP RESULT" : "TRIP TRACKER"}
@@ -385,102 +481,6 @@ export default function MilesScreen() {
         )}
 
       </View>
-
-      {/* ── LOG AN OFFER — only shown when idle ── */}
-      {!isTracking && !lastResult && (
-        <>
-          <Text style={s.sectionLabel}>LOG AN OFFER</Text>
-          <View style={s.card}>
-
-            <TextInput
-              style={s.input}
-              placeholder="e.g. P.F. Chang's"
-              placeholderTextColor={C.muted}
-              value={restaurant}
-              onChangeText={setRestaurant}
-            />
-
-            <View style={s.tripleRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.inputLabel}>DD PAY</Text>
-                <TextInput
-                  style={s.input}
-                  placeholder="2.10"
-                  placeholderTextColor={C.muted}
-                  keyboardType="decimal-pad"
-                  value={ddPay}
-                  onChangeText={setDdPay}
-                />
-              </View>
-              <View style={{ width: 8 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={s.inputLabel}>DD MILES</Text>
-                <TextInput
-                  style={s.input}
-                  placeholder="7.2"
-                  placeholderTextColor={C.muted}
-                  keyboardType="decimal-pad"
-                  value={ddMiles}
-                  onChangeText={setDdMiles}
-                />
-              </View>
-              <View style={{ width: 8 }} />
-              <View style={{ flex: 1, alignItems: "center" }}>
-                <Text style={s.inputLabel}>STACKED</Text>
-                <Switch
-                  value={stacked}
-                  onValueChange={setStacked}
-                  trackColor={{ false: C.border, true: C.accent + "88" }}
-                  thumbColor={stacked ? C.accent : C.sub}
-                />
-              </View>
-            </View>
-
-            <View>
-              <Text style={s.inputLabel}>ACTUAL MILES</Text>
-              <Text style={s.inputSub}>from Google Maps or estimate</Text>
-              <TextInput
-                style={s.input}
-                placeholder="driven miles"
-                placeholderTextColor={C.muted}
-                keyboardType="decimal-pad"
-                value={actualMiles}
-                onChangeText={setActualMiles}
-              />
-            </View>
-
-            {liveShortage !== null && (
-              <Text style={s.liveShortage}>Shorted {liveShortage} mi</Text>
-            )}
-
-            {rateRaw !== null && (
-              <View style={s.liveRow}>
-                <View style={[s.liveBox, { borderColor: vColor + "44" }]}>
-                  <Text style={[s.liveValue, { color: vColor }]}>${rateStr}</Text>
-                  <Text style={s.liveBoxSub}>per mile</Text>
-                </View>
-                <View style={{ width: 8 }} />
-                <View style={[s.liveBox, { borderColor: vColor + "44" }]}>
-                  <Text style={[s.liveValue, { color: vColor }]}>{verdictStr}</Text>
-                  <Text style={s.liveBoxSub}>verdict</Text>
-                </View>
-                <View style={{ width: 8 }} />
-                <View style={s.liveBox}>
-                  <Text style={[s.liveValue, { color: C.text }]}>
-                    {actualNum > 0 ? actualNum.toFixed(1) : estReal}
-                  </Text>
-                  <Text style={s.liveBoxSub}>{actualNum > 0 ? "actual mi" : "est. mi"}</Text>
-                </View>
-              </View>
-            )}
-
-            {rateRaw !== null && parseFloat(rateStr) < 0.50 && (
-              <Text style={s.weakWarning}>⚠️ WEAK OFFER — consider declining</Text>
-            )}
-
-          </View>
-        </>
-      )}
 
       {/* ── MY TRIPS ── */}
       <Text style={s.sectionLabel}>MY TRIPS</Text>
@@ -846,18 +846,22 @@ const s = StyleSheet.create({
     color: C.text,
   },
   newTripBtn: {
-    backgroundColor: C.surface,
-    borderRadius: 10,
-    height: 48,
+    backgroundColor: C.accent,
+    borderRadius: 12,
+    height: 52,
+    width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: C.border,
+    shadowColor: C.accent,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 6,
   },
   newTripBtnText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: C.sub,
+    fontSize: 15,
+    fontWeight: "900",
+    color: "#000",
     letterSpacing: 0.3,
   },
 

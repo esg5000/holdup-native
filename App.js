@@ -13,6 +13,7 @@ export default function App() {
   return (
     <NavigationContainer>
       <Tab.Navigator
+        initialRouteName="My Miles"
         screenOptions={{
           headerShown: false,
           tabBarStyle: {
