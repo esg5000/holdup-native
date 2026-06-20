@@ -31,6 +31,7 @@ export default function MilesScreen() {
   const [ddMiles, setDdMiles] = useState("");
   const [actualMiles, setActualMiles] = useState("");
   const [stacked, setStacked] = useState(false);
+  const [isListening, setIsListening] = useState(false);
 
   // ── Trips state ─────────────────────────────────────────────────
   const [trips, setTrips] = useState([]);
@@ -49,6 +50,7 @@ export default function MilesScreen() {
   const coordsRef = useRef([]);
   const milesRef = useRef(0);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const micPulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     if (isTracking) {
@@ -63,6 +65,20 @@ export default function MilesScreen() {
       pulseAnim.setValue(1);
     }
   }, [isTracking]);
+
+  useEffect(() => {
+    if (isListening) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(micPulseAnim, { toValue: 0.3, duration: 600, useNativeDriver: true }),
+          Animated.timing(micPulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+        ])
+      ).start();
+    } else {
+      micPulseAnim.stopAnimation();
+      micPulseAnim.setValue(1);
+    }
+  }, [isListening]);
 
   useEffect(() => {
     return () => { if (locationSub) locationSub.remove(); };
@@ -261,6 +277,20 @@ export default function MilesScreen() {
               value={restaurant}
               onChangeText={setRestaurant}
             />
+
+            <TouchableOpacity
+              style={[s.micBtn, isListening && s.micBtnActive]}
+              onPress={() => setIsListening(v => !v)}
+            >
+              {isListening ? (
+                <Animated.View style={[s.micDot, { opacity: micPulseAnim }]} />
+              ) : (
+                <Text style={s.micIcon}>🎤</Text>
+              )}
+              <Text style={[s.micBtnText, isListening && s.micBtnTextActive]}>
+                {isListening ? "Listening..." : "Tap to speak your offer"}
+              </Text>
+            </TouchableOpacity>
 
             <View style={s.tripleRow}>
               <View style={{ flex: 1 }}>
@@ -694,6 +724,42 @@ const s = StyleSheet.create({
   tripleRow: {
     flexDirection: "row",
     alignItems: "flex-end",
+  },
+
+  // Voice input
+  micBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    height: 52,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    gap: 10,
+  },
+  micBtnActive: {
+    backgroundColor: C.danger + "22",
+    borderColor: C.danger,
+  },
+  micIcon: {
+    fontSize: 20,
+  },
+  micDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: C.danger,
+  },
+  micBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: C.sub,
+  },
+  micBtnTextActive: {
+    fontWeight: "700",
+    color: C.danger,
   },
 
   // Live calc
