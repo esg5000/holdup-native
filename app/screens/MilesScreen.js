@@ -278,20 +278,6 @@ export default function MilesScreen() {
               onChangeText={setRestaurant}
             />
 
-            <TouchableOpacity
-              style={[s.micBtn, isListening && s.micBtnActive]}
-              onPress={() => setIsListening(v => !v)}
-            >
-              {isListening ? (
-                <Animated.View style={[s.micDot, { opacity: micPulseAnim }]} />
-              ) : (
-                <Text style={s.micIcon}>🎤</Text>
-              )}
-              <Text style={[s.micBtnText, isListening && s.micBtnTextActive]}>
-                {isListening ? "Listening..." : "Tap to speak your offer"}
-              </Text>
-            </TouchableOpacity>
-
             <View style={s.tripleRow}>
               <View style={{ flex: 1 }}>
                 <Text style={s.inputLabel}>DD PAY</Text>
@@ -369,6 +355,20 @@ export default function MilesScreen() {
             {rateRaw !== null && parseFloat(rateStr) < 0.50 && (
               <Text style={s.weakWarning}>⚠️ WEAK OFFER — consider declining</Text>
             )}
+
+            <TouchableOpacity
+              style={[s.micBtn, isListening && s.micBtnActive]}
+              onPress={() => setIsListening(v => !v)}
+            >
+              {isListening ? (
+                <Animated.View style={[s.micDot, { opacity: micPulseAnim }]} />
+              ) : (
+                <Text style={s.micIcon}>🎤</Text>
+              )}
+              <Text style={[s.micBtnText, isListening && s.micBtnTextActive]}>
+                {isListening ? "Listening..." : "Tap to speak your offer"}
+              </Text>
+            </TouchableOpacity>
 
           </View>
         </>
