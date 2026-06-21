@@ -6,12 +6,15 @@ import {
 } from "react-native";
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
+import { Audio } from "expo-av";
 import { C } from "../constants/colors";
 import StatBox from "../components/StatBox";
 import {
   perMile, verdict, verdictColor, estimatedReal,
   shortage, disputeText,
 } from "../utils/calculations";
+
+const HOLDUP_API = "https://holdup-api-4h9p.onrender.com";
 
 const haversine = (lat1, lon1, lat2, lon2) => {
   const R = 3958.8;
@@ -32,6 +35,8 @@ export default function MilesScreen() {
   const [actualMiles, setActualMiles] = useState("");
   const [stacked, setStacked] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [voiceResult, setVoiceResult] = useState(null);
 
   // ── Trips state ─────────────────────────────────────────────────
   const [trips, setTrips] = useState([]);
@@ -51,6 +56,9 @@ export default function MilesScreen() {
   const milesRef = useRef(0);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const micPulseAnim = useRef(new Animated.Value(1)).current;
+  const recordingRef = useRef(null);
+  const setRecordingRef = (r) => { recordingRef.current = r; };
+  const recording = recordingRef.current;
 
   useEffect(() => {
     if (isTracking) {
@@ -83,6 +91,96 @@ export default function MilesScreen() {
   useEffect(() => {
     return () => { if (locationSub) locationSub.remove(); };
   }, [locationSub]);
+
+  // ── Voice input actions ──────────────────────────────────────────
+  const parseTranscript = (text) => {
+    const lower = text.toLowerCase();
+
+    // Extract pay — looks for dollar amounts
+    const payMatch = lower.match(/\$?(\d+\.?\d*)\s*(dollar|bucks)?/);
+    const pay = payMatch ? payMatch[1] : null;
+
+    // Extract miles
+    const milesMatch = lower.match(/(\d+\.?\d*)\s*mile/);
+    const miles = milesMatch ? milesMatch[1] : null;
+
+    // Restaurant — everything before the first number
+    const restMatch = text.match(/^([a-zA-Z\s'\.]+?)(?=\s*\$?\d)/);
+    const restaurant = restMatch ? restMatch[1].trim() : null;
+
+    if (restaurant) setRestaurant(restaurant);
+    if (pay) setDdPay(pay);
+    if (miles) setDdMiles(miles);
+
+    const parts = [];
+    if (restaurant) parts.push(restaurant);
+    if (pay) parts.push(`$${pay}`);
+    if (miles) parts.push(`${miles} mi`);
+
+    setVoiceResult(parts.length > 0 ? `✓ Got it — ${parts.join(", ")}` : "error");
+    setIsProcessing(false);
+  };
+
+  const startListening = async () => {
+    try {
+      const { granted } = await Audio.requestPermissionsAsync();
+      if (!granted) {
+        Alert.alert("Permission needed", "Microphone permission is required for voice input.");
+        return;
+      }
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      setRecordingRef(recording);
+      setIsListening(true);
+      setVoiceResult(null);
+    } catch (err) {
+      Alert.alert("Error", "Could not start recording.");
+    }
+  };
+
+  const stopListening = async () => {
+    try {
+      setIsListening(false);
+      setIsProcessing(true);
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+
+      const formData = new FormData();
+      formData.append("audio", {
+        uri,
+        type: "audio/m4a",
+        name: "voice.m4a",
+      });
+
+      const response = await fetch(`${HOLDUP_API}/api/transcribe`, {
+        method: "POST",
+        body: formData,
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      const data = await response.json();
+      const text = data.text || "";
+
+      if (!text) {
+        setVoiceResult("error");
+        setIsProcessing(false);
+        return;
+      }
+
+      parseTranscript(text);
+    } catch (err) {
+      setVoiceResult("error");
+      setIsProcessing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!voiceResult) return;
+    const t = setTimeout(() => setVoiceResult(null), 3000);
+    return () => clearTimeout(t);
+  }, [voiceResult]);
 
   // ── Tracker actions ──────────────────────────────────────────────
   const startTrip = async () => {
@@ -357,18 +455,37 @@ export default function MilesScreen() {
             )}
 
             <TouchableOpacity
-              style={[s.micBtn, isListening && s.micBtnActive]}
-              onPress={() => setIsListening(v => !v)}
+              style={[
+                s.micBtn,
+                isListening && s.micBtnActive,
+                isProcessing && s.micBtnDisabled,
+              ]}
+              disabled={isProcessing}
+              onPress={() => (isListening ? stopListening() : startListening())}
             >
-              {isListening ? (
-                <Animated.View style={[s.micDot, { opacity: micPulseAnim }]} />
+              {isProcessing ? (
+                <Text style={s.micBtnText}>Reading your offer...</Text>
               ) : (
-                <Text style={s.micIcon}>🎤</Text>
+                <>
+                  {isListening ? (
+                    <Animated.View style={[s.micDot, { opacity: micPulseAnim }]} />
+                  ) : (
+                    <Text style={s.micIcon}>🎤</Text>
+                  )}
+                  <Text style={[s.micBtnText, isListening && s.micBtnTextActive]}>
+                    {isListening ? "Listening..." : "Tap to speak your offer"}
+                  </Text>
+                </>
               )}
-              <Text style={[s.micBtnText, isListening && s.micBtnTextActive]}>
-                {isListening ? "Listening..." : "Tap to speak your offer"}
-              </Text>
             </TouchableOpacity>
+
+            {voiceResult && (
+              voiceResult === "error" ? (
+                <Text style={s.voiceResultError}>Couldn't catch that — try again</Text>
+              ) : (
+                <Text style={s.voiceResultSuccess}>{voiceResult}</Text>
+              )
+            )}
 
           </View>
         </>
@@ -760,6 +877,19 @@ const s = StyleSheet.create({
   micBtnTextActive: {
     fontWeight: "700",
     color: C.danger,
+  },
+  micBtnDisabled: {
+    opacity: 0.5,
+  },
+  voiceResultSuccess: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: C.safe,
+  },
+  voiceResultError: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: C.warn,
   },
 
   // Live calc
