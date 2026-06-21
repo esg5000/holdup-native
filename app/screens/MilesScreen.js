@@ -105,7 +105,8 @@ export default function MilesScreen() {
     const miles = milesMatch ? milesMatch[1] : null;
 
     // Restaurant — everything before the first number
-    const restMatch = text.match(/^([a-zA-Z\s'\.]+?)(?=\s*\$?\d)/);
+    console.log('TRANSCRIPT:', text);
+    const restMatch = text.match(/^([\w\s'\.&\-,]+?)(?=\s+(?:for\s+)?\$?[\d])/i);
     const restaurant = restMatch ? restMatch[1].trim() : null;
 
     if (restaurant) setRestaurant(restaurant);
