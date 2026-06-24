@@ -27,7 +27,7 @@ const haversine = (lat1, lon1, lat2, lon2) => {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-export default function MilesScreen() {
+export default function MilesScreen({ activeTrip, setActiveTrip }) {
   // ── Form state ──────────────────────────────────────────────────
   const [restaurant, setRestaurant] = useState("");
   const [ddPay, setDdPay] = useState("");
@@ -207,6 +207,15 @@ export default function MilesScreen() {
       stacked,
     };
     setLockedOffer(offer);
+    setActiveTrip({
+      id: Date.now(),
+      restaurant: restaurant || "Unknown Restaurant",
+      ddPay,
+      ddMiles,
+      stacked,
+      startTime: new Date().toISOString(),
+      reported: false,
+    });
 
     coordsRef.current = [];
     milesRef.current = 0;
@@ -263,6 +272,7 @@ export default function MilesScreen() {
 
     setTrips(prev => [newTrip, ...prev]);
     setLastResult(newTrip);
+    setActiveTrip(prev => prev ? { ...prev, ended: true } : null);
 
     coordsRef.current = [];
     milesRef.current = 0;
@@ -338,6 +348,17 @@ export default function MilesScreen() {
         </Text>
         <Text style={s.subtitle}>TRACK EVERY MILE DD OWES YOU</Text>
       </View>
+
+      {activeTrip && isTracking && (
+        <View style={s.activeTripBanner}>
+          <Text style={s.activeTripText}>
+            🚗 Trip active — {activeTrip.restaurant}
+          </Text>
+          <Text style={s.activeTripSub}>
+            Check Spots tab when you arrive
+          </Text>
+        </View>
+      )}
 
       {/* ── STATS ROW ── */}
       <View style={s.statsRow}>
@@ -780,6 +801,28 @@ const s = StyleSheet.create({
     color: C.sub,
     letterSpacing: 1,
     marginTop: 3,
+  },
+
+  // Active trip banner
+  activeTripBanner: {
+    backgroundColor: C.accent + "22",
+    borderColor: C.accent + "66",
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    marginHorizontal: 16,
+    marginTop: 14,
+  },
+  activeTripText: {
+    color: C.accent,
+    fontWeight: "800",
+    fontSize: 14,
+  },
+  activeTripSub: {
+    color: C.sub,
+    fontSize: 11,
+    marginTop: 2,
   },
 
   // Stats

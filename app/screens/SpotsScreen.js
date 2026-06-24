@@ -91,16 +91,34 @@ const lieColor = (pct, C) => pct < 25 ? C.danger : pct < 50 ? C.warn : pct < 75 
 const waitColor = (min, C) => min > 20 ? C.danger : min > 10 ? C.warn : C.safe;
 const stolenColor = (n, C) => n > 5 ? C.danger : n > 1 ? C.warn : C.safe;
 
-export default function SpotsScreen() {
+const calculateWaitMinutes = (arrive, orderOut) => {
+  if (!arrive || !orderOut) return 0;
+  const toMin = t => {
+    const [time, period] = t.split(" ");
+    let [h, m] = time.split(":").map(Number);
+    if (period === "PM" && h !== 12) h += 12;
+    if (period === "AM" && h === 12) h = 0;
+    return h * 60 + m;
+  };
+  return Math.max(0, toMin(orderOut) - toMin(arrive));
+};
+
+export default function SpotsScreen({ activeTrip, setActiveTrip }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [selected, setSelected] = useState(null);
   const [showReport, setShowReport] = useState(false);
-  const [restaurants] = useState(RESTAURANTS);
+  const [restaurants, setRestaurants] = useState(RESTAURANTS);
   const [reportTags, setReportTags] = useState([]);
   const [statedWait, setStatedWait] = useState("");
   const [actualWait, setActualWait] = useState("");
   const [reportNote, setReportNote] = useState("");
+
+  const [showPickupReport, setShowPickupReport] = useState(false);
+  const [arriveTime, setArriveTime] = useState(null);
+  const [orderOutTime, setOrderOutTime] = useState(null);
+  const [pickupTags, setPickupTags] = useState([]);
+  const [pickupNote, setPickupNote] = useState("");
 
   // ── Derived ──────────────────────────────────────────────────────
   const avoidCount = restaurants.filter(r => r.verdict === "danger").length;
@@ -178,6 +196,28 @@ export default function SpotsScreen() {
           <Text style={s.cityText}>Phoenix AZ</Text>
         </View>
       </View>
+
+      {activeTrip && !activeTrip.ended && (
+        <TouchableOpacity
+          onPress={() => setShowPickupReport(true)}
+          style={s.headedHereBanner}
+        >
+          <View style={s.headedHereTop}>
+            <Text style={s.headedHereIcon}>🚗</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.headedHereTitle}>YOU'RE HEADED HERE</Text>
+              <Text style={s.headedHereName}>{activeTrip.restaurant}</Text>
+            </View>
+            <View style={s.headedHereOffer}>
+              <Text style={s.headedHerePay}>${activeTrip.ddPay}</Text>
+              <Text style={s.headedHereMiles}>{activeTrip.ddMiles} mi</Text>
+            </View>
+          </View>
+          <Text style={s.headedHereCta}>
+            Tap to report your pickup experience →
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* ── CITY STATS STRIP ── */}
       <View style={s.statsStrip}>
@@ -632,6 +672,147 @@ export default function SpotsScreen() {
         </View>
       </Modal>
 
+      {/* ── PICKUP REPORT MODAL ── */}
+      <Modal visible={showPickupReport} animationType="slide" transparent>
+        <View style={s.modalOverlay}>
+          <View style={s.modalSheet}>
+            {/* Handle */}
+            <View style={s.modalHandle} />
+
+            {/* Header */}
+            <View style={s.modalHeader}>
+              <View>
+                <Text style={s.modalTitle}>Pickup Report</Text>
+                <Text style={s.modalSub}>{activeTrip?.restaurant}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowPickupReport(false)}>
+                <Text style={s.closeBtn}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Time stamps */}
+            <View style={s.timeRow}>
+              <TouchableOpacity
+                style={[s.timeBox, arriveTime && s.timeBoxActive]}
+                onPress={() => setArriveTime(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}
+              >
+                <Text style={s.timeLabel}>I ARRIVED</Text>
+                <Text style={[s.timeValue, { color: arriveTime ? C.accent : C.muted }]}>
+                  {arriveTime || "Tap to stamp"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[s.timeBox, orderOutTime && s.timeBoxActive]}
+                onPress={() => setOrderOutTime(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}
+              >
+                <Text style={s.timeLabel}>ORDER OUT</Text>
+                <Text style={[s.timeValue, { color: orderOutTime ? C.safe : C.muted }]}>
+                  {orderOutTime || "Tap to stamp"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Wait time calculated */}
+            {arriveTime && orderOutTime && (
+              <View style={s.waitResult}>
+                <Text style={s.waitResultText}>
+                  ⏱ You waited {calculateWaitMinutes(arriveTime, orderOutTime)} min
+                </Text>
+              </View>
+            )}
+
+            {/* Tags */}
+            <Text style={s.sectionLabel}>WHAT HAPPENED?</Text>
+            <View style={s.tagGrid}>
+              {REPORT_TAGS.map(t => {
+                const active = pickupTags.includes(t.key);
+                const isGood = ["honest", "ready_early"].includes(t.key);
+                const activeColor = isGood ? C.safe : C.danger;
+                return (
+                  <TouchableOpacity
+                    key={t.key}
+                    onPress={() => setPickupTags(prev =>
+                      prev.includes(t.key) ? prev.filter(x => x !== t.key) : [...prev, t.key]
+                    )}
+                    style={[s.tagPill, active && { backgroundColor: activeColor + "22", borderColor: activeColor + "88" }]}
+                  >
+                    <Text style={[s.tagText, active && { color: activeColor }]}>
+                      {t.icon} {t.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Note */}
+            <TextInput
+              value={pickupNote}
+              onChangeText={setPickupNote}
+              placeholder="What actually happened in that lobby..."
+              placeholderTextColor={C.muted}
+              multiline
+              numberOfLines={3}
+              style={s.noteInput}
+            />
+
+            {/* Submit */}
+            <TouchableOpacity
+              style={s.submitBtn}
+              onPress={() => {
+                const newReport = {
+                  id: Date.now(),
+                  ago: "Just now",
+                  wait: calculateWaitMinutes(arriveTime, orderOutTime),
+                  stated: 0,
+                  stolen: pickupTags.includes("stolen"),
+                  dump: pickupTags.includes("dumped"),
+                  note: pickupNote || "Reported from active trip.",
+                };
+
+                setRestaurants(prev => {
+                  const existing = prev.find(r =>
+                    r.name.toLowerCase() === activeTrip.restaurant.toLowerCase()
+                  );
+                  if (existing) {
+                    return prev.map(r =>
+                      r.name.toLowerCase() === activeTrip.restaurant.toLowerCase()
+                        ? { ...r, recentReports: [newReport, ...r.recentReports], reportCount: r.reportCount + 1 }
+                        : r
+                    );
+                  } else {
+                    return [{
+                      id: Date.now(),
+                      name: activeTrip.restaurant,
+                      address: "Reported from trip",
+                      cuisine: "Unknown",
+                      verdict: "warn",
+                      avgWait: calculateWaitMinutes(arriveTime, orderOutTime) || 0,
+                      lieScore: 50,
+                      stolenOrders: pickupTags.includes("stolen") ? 1 : 0,
+                      respDumps: pickupTags.includes("dumped") ? 1 : 0,
+                      unassignRate: 0,
+                      reportCount: 1,
+                      tags: pickupTags.map(k => REPORT_TAGS.find(t => t.key === k)?.label || k),
+                      recentReports: [newReport],
+                    }, ...prev];
+                  }
+                });
+
+                setActiveTrip(prev => ({ ...prev, reported: true, ended: true }));
+                setShowPickupReport(false);
+                setPickupTags([]);
+                setPickupNote("");
+                setArriveTime(null);
+                setOrderOutTime(null);
+              }}
+            >
+              <Text style={s.submitBtnText}>Submit Pickup Report</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -679,6 +860,58 @@ const s = StyleSheet.create({
     backgroundColor: C.safe,
   },
   cityText: {
+    fontSize: 12,
+    color: C.sub,
+    fontWeight: "600",
+  },
+
+  // Headed here banner
+  headedHereBanner: {
+    backgroundColor: C.accent + "15",
+    borderColor: C.accent,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    padding: 14,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  headedHereTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 8,
+  },
+  headedHereIcon: {
+    fontSize: 24,
+  },
+  headedHereTitle: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: C.accent,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+  },
+  headedHereName: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: C.text,
+    marginTop: 2,
+  },
+  headedHereOffer: {
+    alignItems: "flex-end",
+  },
+  headedHerePay: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: C.accent,
+  },
+  headedHereMiles: {
+    fontSize: 11,
+    color: C.sub,
+    marginTop: 2,
+  },
+  headedHereCta: {
     fontSize: 12,
     color: C.sub,
     fontWeight: "600",
@@ -1241,5 +1474,94 @@ const s = StyleSheet.create({
     fontSize: 15,
     fontWeight: "900",
     color: "#000",
+  },
+
+  // Pickup report modal (bottom sheet)
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "#00000088",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    backgroundColor: C.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    paddingBottom: 32,
+    maxHeight: "85%",
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: C.border,
+    alignSelf: "center",
+    marginBottom: 14,
+  },
+  modalSub: {
+    fontSize: 12,
+    color: C.sub,
+    marginTop: 2,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    color: C.sub,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  tagGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 16,
+  },
+  tagText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: C.sub,
+  },
+  timeRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 12,
+  },
+  timeBox: {
+    flex: 1,
+    backgroundColor: C.bg,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 10,
+    padding: 12,
+    alignItems: "center",
+  },
+  timeBoxActive: {
+    borderColor: C.accent + "66",
+    backgroundColor: C.accent + "11",
+  },
+  timeLabel: {
+    fontSize: 10,
+    color: C.muted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  timeValue: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  waitResult: {
+    backgroundColor: C.accent + "15",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+    alignItems: "center",
+  },
+  waitResultText: {
+    color: C.accent,
+    fontWeight: "700",
+    fontSize: 13,
   },
 });

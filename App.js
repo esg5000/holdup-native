@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Text } from "react-native";
@@ -10,6 +10,8 @@ import MilesScreen from "./app/screens/MilesScreen";
 const Tab = createBottomTabNavigator();
 
 export default function App() {
+  const [activeTrip, setActiveTrip] = useState(null);
+
   return (
     <NavigationContainer>
       <Tab.Navigator
@@ -33,14 +35,18 @@ export default function App() {
       >
         <Tab.Screen
           name="Spots"
-          component={SpotsScreen}
+          children={(props) => (
+            <SpotsScreen {...props} activeTrip={activeTrip} setActiveTrip={setActiveTrip} />
+          )}
           options={{
             tabBarIcon: () => <Text style={{ fontSize: 20 }}>🍔</Text>,
           }}
         />
         <Tab.Screen
           name="My Miles"
-          component={MilesScreen}
+          children={(props) => (
+            <MilesScreen {...props} activeTrip={activeTrip} setActiveTrip={setActiveTrip} />
+          )}
           options={{
             tabBarIcon: () => <Text style={{ fontSize: 20 }}>🚗</Text>,
           }}
