@@ -690,125 +690,127 @@ export default function SpotsScreen({ activeTrip, setActiveTrip }) {
               </TouchableOpacity>
             </View>
 
-            {/* Time stamps */}
-            <View style={s.timeRow}>
-              <TouchableOpacity
-                style={[s.timeBox, arriveTime && s.timeBoxActive]}
-                onPress={() => setArriveTime(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}
-              >
-                <Text style={s.timeLabel}>I ARRIVED</Text>
-                <Text style={[s.timeValue, { color: arriveTime ? C.accent : C.muted }]}>
-                  {arriveTime || "Tap to stamp"}
-                </Text>
-              </TouchableOpacity>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              {/* Time stamps */}
+              <View style={s.timeRow}>
+                <TouchableOpacity
+                  style={[s.timeBox, arriveTime && s.timeBoxActive]}
+                  onPress={() => setArriveTime(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}
+                >
+                  <Text style={s.timeLabel}>I ARRIVED</Text>
+                  <Text style={[s.timeValue, { color: arriveTime ? C.accent : C.muted }]}>
+                    {arriveTime || "Tap to stamp"}
+                  </Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[s.timeBox, orderOutTime && s.timeBoxActive]}
-                onPress={() => setOrderOutTime(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}
-              >
-                <Text style={s.timeLabel}>ORDER OUT</Text>
-                <Text style={[s.timeValue, { color: orderOutTime ? C.safe : C.muted }]}>
-                  {orderOutTime || "Tap to stamp"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Wait time calculated */}
-            {arriveTime && orderOutTime && (
-              <View style={s.waitResult}>
-                <Text style={s.waitResultText}>
-                  ⏱ You waited {calculateWaitMinutes(arriveTime, orderOutTime)} min
-                </Text>
+                <TouchableOpacity
+                  style={[s.timeBox, orderOutTime && s.timeBoxActive]}
+                  onPress={() => setOrderOutTime(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}
+                >
+                  <Text style={s.timeLabel}>ORDER OUT</Text>
+                  <Text style={[s.timeValue, { color: orderOutTime ? C.safe : C.muted }]}>
+                    {orderOutTime || "Tap to stamp"}
+                  </Text>
+                </TouchableOpacity>
               </View>
-            )}
 
-            {/* Tags */}
-            <Text style={s.sectionLabel}>WHAT HAPPENED?</Text>
-            <View style={s.tagGrid}>
-              {REPORT_TAGS.map(t => {
-                const active = pickupTags.includes(t.key);
-                const isGood = ["honest", "ready_early"].includes(t.key);
-                const activeColor = isGood ? C.safe : C.danger;
-                return (
-                  <TouchableOpacity
-                    key={t.key}
-                    onPress={() => setPickupTags(prev =>
-                      prev.includes(t.key) ? prev.filter(x => x !== t.key) : [...prev, t.key]
-                    )}
-                    style={[s.tagPill, active && { backgroundColor: activeColor + "22", borderColor: activeColor + "88" }]}
-                  >
-                    <Text style={[s.tagText, active && { color: activeColor }]}>
-                      {t.icon} {t.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+              {/* Wait time calculated */}
+              {arriveTime && orderOutTime && (
+                <View style={s.waitResult}>
+                  <Text style={s.waitResultText}>
+                    ⏱ You waited {calculateWaitMinutes(arriveTime, orderOutTime)} min
+                  </Text>
+                </View>
+              )}
 
-            {/* Note */}
-            <TextInput
-              value={pickupNote}
-              onChangeText={setPickupNote}
-              placeholder="What actually happened in that lobby..."
-              placeholderTextColor={C.muted}
-              multiline
-              numberOfLines={3}
-              style={s.noteInput}
-            />
-
-            {/* Submit */}
-            <TouchableOpacity
-              style={s.submitBtn}
-              onPress={() => {
-                const newReport = {
-                  id: Date.now(),
-                  ago: "Just now",
-                  wait: calculateWaitMinutes(arriveTime, orderOutTime),
-                  stated: 0,
-                  stolen: pickupTags.includes("stolen"),
-                  dump: pickupTags.includes("dumped"),
-                  note: pickupNote || "Reported from active trip.",
-                };
-
-                setRestaurants(prev => {
-                  const existing = prev.find(r =>
-                    r.name.toLowerCase() === activeTrip.restaurant.toLowerCase()
+              {/* Tags */}
+              <Text style={s.sectionLabel}>WHAT HAPPENED?</Text>
+              <View style={s.tagGrid}>
+                {REPORT_TAGS.map(t => {
+                  const active = pickupTags.includes(t.key);
+                  const isGood = ["honest", "ready_early"].includes(t.key);
+                  const activeColor = isGood ? C.safe : C.danger;
+                  return (
+                    <TouchableOpacity
+                      key={t.key}
+                      onPress={() => setPickupTags(prev =>
+                        prev.includes(t.key) ? prev.filter(x => x !== t.key) : [...prev, t.key]
+                      )}
+                      style={[s.tagPill, active && { backgroundColor: activeColor + "22", borderColor: activeColor + "88" }]}
+                    >
+                      <Text style={[s.tagText, active && { color: activeColor }]}>
+                        {t.icon} {t.label}
+                      </Text>
+                    </TouchableOpacity>
                   );
-                  if (existing) {
-                    return prev.map(r =>
-                      r.name.toLowerCase() === activeTrip.restaurant.toLowerCase()
-                        ? { ...r, recentReports: [newReport, ...r.recentReports], reportCount: r.reportCount + 1 }
-                        : r
-                    );
-                  } else {
-                    return [{
-                      id: Date.now(),
-                      name: activeTrip.restaurant,
-                      address: "Reported from trip",
-                      cuisine: "Unknown",
-                      verdict: "warn",
-                      avgWait: calculateWaitMinutes(arriveTime, orderOutTime) || 0,
-                      lieScore: 50,
-                      stolenOrders: pickupTags.includes("stolen") ? 1 : 0,
-                      respDumps: pickupTags.includes("dumped") ? 1 : 0,
-                      unassignRate: 0,
-                      reportCount: 1,
-                      tags: pickupTags.map(k => REPORT_TAGS.find(t => t.key === k)?.label || k),
-                      recentReports: [newReport],
-                    }, ...prev];
-                  }
-                });
+                })}
+              </View>
 
-                setActiveTrip(prev => ({ ...prev, reported: true, ended: true }));
-                setShowPickupReport(false);
-                setPickupTags([]);
-                setPickupNote("");
-                setArriveTime(null);
-                setOrderOutTime(null);
-              }}
-            >
-              <Text style={s.submitBtnText}>Submit Pickup Report</Text>
-            </TouchableOpacity>
+              {/* Note */}
+              <TextInput
+                value={pickupNote}
+                onChangeText={setPickupNote}
+                placeholder="What actually happened in that lobby..."
+                placeholderTextColor={C.muted}
+                multiline
+                numberOfLines={3}
+                style={s.noteInput}
+              />
+
+              {/* Submit */}
+              <TouchableOpacity
+                style={s.submitBtn}
+                onPress={() => {
+                  const newReport = {
+                    id: Date.now(),
+                    ago: "Just now",
+                    wait: calculateWaitMinutes(arriveTime, orderOutTime),
+                    stated: 0,
+                    stolen: pickupTags.includes("stolen"),
+                    dump: pickupTags.includes("dumped"),
+                    note: pickupNote || "Reported from active trip.",
+                  };
+
+                  setRestaurants(prev => {
+                    const existing = prev.find(r =>
+                      r.name.toLowerCase() === activeTrip.restaurant.toLowerCase()
+                    );
+                    if (existing) {
+                      return prev.map(r =>
+                        r.name.toLowerCase() === activeTrip.restaurant.toLowerCase()
+                          ? { ...r, recentReports: [newReport, ...r.recentReports], reportCount: r.reportCount + 1 }
+                          : r
+                      );
+                    } else {
+                      return [{
+                        id: Date.now(),
+                        name: activeTrip.restaurant,
+                        address: "Reported from trip",
+                        cuisine: "Unknown",
+                        verdict: "warn",
+                        avgWait: calculateWaitMinutes(arriveTime, orderOutTime) || 0,
+                        lieScore: 50,
+                        stolenOrders: pickupTags.includes("stolen") ? 1 : 0,
+                        respDumps: pickupTags.includes("dumped") ? 1 : 0,
+                        unassignRate: 0,
+                        reportCount: 1,
+                        tags: pickupTags.map(k => REPORT_TAGS.find(t => t.key === k)?.label || k),
+                        recentReports: [newReport],
+                      }, ...prev];
+                    }
+                  });
+
+                  setActiveTrip(prev => ({ ...prev, reported: true, ended: true }));
+                  setShowPickupReport(false);
+                  setPickupTags([]);
+                  setPickupNote("");
+                  setArriveTime(null);
+                  setOrderOutTime(null);
+                }}
+              >
+                <Text style={s.submitBtnText}>Submit Pickup Report</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1177,6 +1179,7 @@ const s = StyleSheet.create({
     borderColor: C.border,
     alignItems: "center",
     justifyContent: "center",
+    marginLeft: 12,
   },
   closeBtnText: {
     fontSize: 14,
