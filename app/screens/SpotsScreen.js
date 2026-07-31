@@ -1150,7 +1150,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     paddingHorizontal: 16,
-    paddingTop: 56,
+    paddingTop: 16,
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
