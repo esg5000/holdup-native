@@ -93,14 +93,23 @@ const stolenColor = (n, C) => n > 5 ? C.danger : n > 1 ? C.warn : C.safe;
 
 const calculateWaitMinutes = (arrive, orderOut) => {
   if (!arrive || !orderOut) return 0;
-  const toMin = t => {
-    const [time, period] = t.split(" ");
-    let [h, m] = time.split(":").map(Number);
-    if (period === "PM" && h !== 12) h += 12;
-    if (period === "AM" && h === 12) h = 0;
-    return h * 60 + m;
-  };
-  return Math.max(0, toMin(orderOut) - toMin(arrive));
+  try {
+    const parse = (t) => {
+      const clean = t.replace(/\u00A0/g, ' ').trim();
+      const match = clean.match(/(\d+):(\d+)\s*(AM|PM)/i);
+      if (!match) return 0;
+      let h = parseInt(match[1], 10);
+      const m = parseInt(match[2], 10);
+      const period = match[3].toUpperCase();
+      if (period === 'PM' && h !== 12) h += 12;
+      if (period === 'AM' && h === 12) h = 0;
+      return h * 60 + m;
+    };
+    const diff = parse(orderOut) - parse(arrive);
+    return Math.max(0, diff);
+  } catch (e) {
+    return 0;
+  }
 };
 
 export default function SpotsScreen({ activeTrip, setActiveTrip }) {
@@ -690,7 +699,11 @@ export default function SpotsScreen({ activeTrip, setActiveTrip }) {
               </TouchableOpacity>
             </View>
 
-            <ScrollView keyboardShouldPersistTaps="handled">
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 30 }}
+            >
               {/* Time stamps */}
               <View style={s.timeRow}>
                 <TouchableOpacity
@@ -1491,7 +1504,7 @@ const s = StyleSheet.create({
     borderTopRightRadius: 20,
     padding: 16,
     paddingBottom: 32,
-    maxHeight: "85%",
+    maxHeight: "90%",
   },
   modalHandle: {
     width: 40,
