@@ -846,7 +846,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     paddingHorizontal: 16,
-    paddingTop: 20,
+    paddingTop: 56,
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
