@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "holdup",
-    "slug": "holdup",
+    "name": "DashDispute",
+    "slug": "dashdispute",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0c0c0e"
+      "backgroundColor": "#0f0f0f"
     },
     "userInterfaceStyle": "light",
     "ios": {
@@ -21,7 +21,7 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "package": "com.unclem1lk5000.holdup",
+      "package": "com.unclem1lk5000.dashdispute",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",

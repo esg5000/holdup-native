@@ -194,15 +194,15 @@ export default function SpotsScreen({ activeTrip, setActiveTrip }) {
       {/* ── HEADER ── */}
       <View style={s.header}>
         <View>
-          <Text style={s.title}>
-            <Text style={{ color: C.accent }}>Hold</Text>
-            <Text style={{ color: C.text }}>Up</Text>
+          <Text style={s.logoText}>
+            <Text style={s.logoAccent}>Dash</Text>
+            <Text style={s.logoWhite}>Dispute</Text>
           </Text>
-          <Text style={s.subtitle}>KNOW BEFORE YOU GO</Text>
+          <Text style={s.tagline}>GET EVERY DOLLAR YOU'RE OWED</Text>
         </View>
-        <View style={s.cityRow}>
-          <View style={s.dot} />
-          <Text style={s.cityText}>Phoenix AZ</Text>
+        <View style={s.locationBadge}>
+          <View style={s.liveDot} />
+          <Text style={s.locationText}>Phoenix AZ</Text>
         </View>
       </View>
 
@@ -306,6 +306,7 @@ export default function SpotsScreen({ activeTrip, setActiveTrip }) {
               style={[
                 s.rCard,
                 r.verdict === "danger" && { borderColor: C.danger + "33" },
+                { borderLeftColor: vc },
               ]}
               onPress={() => setSelected(r)}
               activeOpacity={0.8}
@@ -841,43 +842,52 @@ const s = StyleSheet.create({
 
   // Header
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: C.bg,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
     paddingHorizontal: 16,
-    paddingTop: 56,
+    paddingTop: 20,
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
-  title: {
-    fontSize: 26,
-    fontWeight: "900",
+  logoText: {
+    fontSize: 28,
+    fontWeight: '900',
     letterSpacing: -0.5,
+    lineHeight: 30,
   },
-  subtitle: {
-    fontSize: 11,
+  logoAccent: {
+    color: C.accent,
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  logoWhite: {
+    color: C.text,
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  tagline: {
+    fontSize: 10,
     color: C.sub,
-    letterSpacing: 1,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
     marginTop: 2,
-    textTransform: "uppercase",
   },
-  cityRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  locationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
-  dot: {
+  liveDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: C.safe,
   },
-  cityText: {
+  locationText: {
     fontSize: 12,
     color: C.sub,
-    fontWeight: "600",
   },
 
   // Headed here banner
@@ -889,7 +899,7 @@ const s = StyleSheet.create({
     padding: 14,
     marginHorizontal: 16,
     marginTop: 12,
-    marginBottom: 4,
+    marginBottom: 14,
   },
   headedHereTop: {
     flexDirection: "row",
@@ -1010,7 +1020,7 @@ const s = StyleSheet.create({
     alignSelf: "flex-start",
   },
   pillActive: {
-    backgroundColor: C.accent + "18",
+    backgroundColor: C.accent + "22",
     borderColor: C.accent + "66",
   },
   pillText: {
@@ -1039,6 +1049,7 @@ const s = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: C.border,
+    borderLeftWidth: 3,
     gap: 10,
   },
   rTop: {
@@ -1390,7 +1401,7 @@ const s = StyleSheet.create({
   reportBtnText: {
     fontSize: 15,
     fontWeight: "900",
-    color: "#000",
+    color: "#ffffff",
   },
 
   // Report modal sections
@@ -1489,7 +1500,7 @@ const s = StyleSheet.create({
   submitBtnText: {
     fontSize: 15,
     fontWeight: "900",
-    color: "#000",
+    color: "#ffffff",
   },
 
   // Pickup report modal (bottom sheet)

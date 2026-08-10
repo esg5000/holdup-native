@@ -343,10 +343,17 @@ export default function MilesScreen({ activeTrip, setActiveTrip }) {
 
       {/* ── HEADER ── */}
       <View style={s.header}>
-        <Text style={s.title}>
-          My <Text style={{ color: C.accent }}>Miles</Text>
-        </Text>
-        <Text style={s.subtitle}>TRACK EVERY MILE DD OWES YOU</Text>
+        <View>
+          <Text style={s.logoText}>
+            <Text style={s.logoAccent}>Dash</Text>
+            <Text style={s.logoWhite}>Dispute</Text>
+          </Text>
+          <Text style={s.tagline}>GET EVERY DOLLAR YOU'RE OWED</Text>
+        </View>
+        <View style={s.locationBadge}>
+          <View style={s.liveDot} />
+          <Text style={s.locationText}>Phoenix AZ</Text>
+        </View>
       </View>
 
       {activeTrip && isTracking && (
@@ -366,14 +373,14 @@ export default function MilesScreen({ activeTrip, setActiveTrip }) {
           label="Shorted"
           value={trips.length > 0 ? totalShorted.toFixed(1) : "—"}
           unit={trips.length > 0 ? "mi" : ""}
-          color={totalShorted > 0 ? C.danger : C.sub}
+          color={totalShorted > 0 ? C.accent : C.sub}
         />
         <View style={{ width: 8 }} />
         <StatBox
           label="Recovered"
           value={`$${recovered.toFixed(0)}`}
           unit=""
-          color={recovered > 0 ? C.safe : C.sub}
+          color={recovered > 0 ? C.accent : C.sub}
         />
         <View style={{ width: 8 }} />
         <StatBox
@@ -783,24 +790,52 @@ const s = StyleSheet.create({
 
   // Header
   header: {
-    backgroundColor: C.bg,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
     paddingHorizontal: 16,
-    paddingTop: 56,
-    paddingBottom: 16,
+    paddingTop: 20,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
-  title: {
-    fontSize: 26,
-    fontWeight: "900",
-    color: C.text,
+  logoText: {
+    fontSize: 28,
+    fontWeight: '900',
     letterSpacing: -0.5,
+    lineHeight: 30,
   },
-  subtitle: {
-    fontSize: 11,
+  logoAccent: {
+    color: C.accent,
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  logoWhite: {
+    color: C.text,
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  tagline: {
+    fontSize: 10,
     color: C.sub,
-    letterSpacing: 1,
-    marginTop: 3,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
+  locationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: C.safe,
+  },
+  locationText: {
+    fontSize: 12,
+    color: C.sub,
   },
 
   // Active trip banner
@@ -835,13 +870,13 @@ const s = StyleSheet.create({
   // Section labels
   sectionLabel: {
     fontSize: 11,
+    fontWeight: "900",
     color: C.sub,
-    fontWeight: "700",
-    letterSpacing: 1,
     textTransform: "uppercase",
+    letterSpacing: 2,
     marginHorizontal: 16,
-    marginBottom: 8,
-    marginTop: 4,
+    marginBottom: 10,
+    marginTop: 16,
   },
 
   // Card (shared)
@@ -980,6 +1015,10 @@ const s = StyleSheet.create({
     height: 56,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: C.accent,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
   startBtnText: {
     fontSize: 16,
@@ -995,6 +1034,10 @@ const s = StyleSheet.create({
     height: 56,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: C.danger,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
   endBtnText: {
     fontSize: 16,
@@ -1094,9 +1137,9 @@ const s = StyleSheet.create({
     justifyContent: "center",
     shadowColor: C.accent,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 6,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
   newTripBtnText: {
     fontSize: 15,
@@ -1128,6 +1171,8 @@ const s = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: C.border,
+    borderLeftWidth: 3,
+    borderLeftColor: C.accent,
     marginBottom: 10,
     gap: 8,
   },
